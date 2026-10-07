@@ -1,7 +1,7 @@
 package org.ak.billing.services;
 
 import org.ak.billing.beans.Product;
-
+import org.ak.billing.exceptions.InventoryShortageException;
 import org.ak.billing.observers.InventoryObserver;
 
 import java.util.Set;
@@ -12,7 +12,10 @@ public interface StoreDBService {
 
     boolean isTransactionAllowed(UUID pid, int quantity);
 
-    void updateInventory(Set<Product> cartProducts);
+    /**
+     * Sepetteki adetleri stoktan düşer. Ürünlerden biri bile yetersizse hiçbir stok değişmez.
+     */
+    void updateInventory(Set<Product> cartProducts) throws InventoryShortageException;
 
     void addObserver(InventoryObserver observer);
 

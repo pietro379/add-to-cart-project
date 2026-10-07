@@ -3,7 +3,6 @@ package org.ak.billing.beans;
 import org.ak.billing.constants.ProductTypes;
 
 import java.math.BigDecimal;
-
 import java.util.Objects;
 import java.util.UUID;
 
@@ -14,32 +13,51 @@ public final class Product implements Cloneable {
     private final ProductTypes type;
     private final BigDecimal unitPrice;
 
+    public Product(UUID id, String name, int quantity, ProductTypes type, BigDecimal unitPrice) {
+        this.id = Objects.requireNonNull(id, "id");
+        this.name = Objects.requireNonNull(name, "name").trim();
+        this.type = Objects.requireNonNull(type, "type");
+        this.unitPrice = Objects.requireNonNull(unitPrice, "unitPrice");
+        if (unitPrice.signum() < 0) {
+            throw new IllegalArgumentException("Birim fiyat negatif olamaz: " + unitPrice);
+        }
+        setQuantity(quantity);
+    }
+
+    /** Aynı ürünün farklı adetteki kopyası; sepete eklerken stok kaydını değiştirmemek için kullanılır. */
+    public Product withQuantity(int newQuantity) {
+        return new Product(id, name, newQuantity, type, unitPrice);
+    }
+
+    /** Birim fiyat x adet. */
+    public BigDecimal getLineTotal() {
+        return unitPrice.multiply(BigDecimal.valueOf(quantity));
+    }
+
+    public boolean isPhone() {
+        return type == ProductTypes.PHONE;
+    }
+
+    // Ürün kimliği yalnızca id'dir; adet ve fiyat değişse de aynı ürün sayılır.
     @Override
-    public int hashCode() {
-        int result = 1;
-        int prime = 31;
-        result = result * prime + ((id != null) ? (id.hashCode()) : (0));
-        result = result * prime + ((name != null) ? (name.hashCode()) : (0));
-        result = result * prime + ((type != null) ? (type.hashCode()) : (0));
-        return result;
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof Product)) {
+            return false;
+        }
+        return id.equals(((Product) obj).id);
     }
 
     @Override
-    public boolean equals(Object obj) {
-        return Objects.equals(id, ((Product) obj).getId());
+    public int hashCode() {
+        return id.hashCode();
     }
 
     @Override
     public Object clone() throws CloneNotSupportedException {
         return super.clone();
-    }
-
-    public Product(UUID id, String name, int quantity, ProductTypes type, BigDecimal unitPrice) {
-        this.id = id;
-        this.name = name;
-        this.quantity = quantity;
-        this.type = type;
-        this.unitPrice = unitPrice;
     }
 
     public UUID getId() {
@@ -51,6 +69,9 @@ public final class Product implements Cloneable {
     }
 
     public void setQuantity(int quantity) {
+        if (quantity < 0) {
+            throw new IllegalArgumentException("Adet negatif olamaz: " + quantity);
+        }
         this.quantity = quantity;
     }
 
@@ -76,5 +97,4 @@ public final class Product implements Cloneable {
                 ", unitPrice=" + unitPrice +
                 '}';
     }
-
 }

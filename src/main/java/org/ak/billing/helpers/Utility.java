@@ -1,109 +1,115 @@
 package org.ak.billing.helpers;
 
+import org.ak.billing.beans.Invoice;
 import org.ak.billing.beans.Product;
 import org.ak.billing.beans.Shopper;
+import org.ak.billing.beans.UserDetails;
 import org.ak.billing.constants.ApplicationConstants;
 import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 
-public class Utility {
+/** Para, tarih ve fatura biçimlendirme yardımcıları. */
+public final class Utility {
+    private static final Locale TR = Locale.forLanguageTag("tr-TR");
+    private static final int WIDTH = ApplicationConstants.BILL_LENGTH.asInt();
+    private static final String ROW = "%-24s %-12s %5s %13s %13s";
 
-        public static void println(Object o) {
-                if ((Boolean) ApplicationConstants.SHOW_LOGS.getApplicationConstant()) {
-                        System.out.println(o);
-                }
+    private Utility() {
+    }
+
+    /** {@code 1234.5 -> "$1,234.50"}. Fiyatlar dolar cinsinden olduğu için ABD biçimi kullanılır. */
+    public static String money(BigDecimal amount) {
+        NumberFormat format = NumberFormat.getCurrencyInstance(Locale.US);
+        return format.format(amount.setScale(2, RoundingMode.HALF_UP));
+    }
+
+    /** {@code 0.30 -> "%30"}. */
+    public static String percent(BigDecimal rate) {
+        return "%" + rate.movePointRight(2).stripTrailingZeros().toPlainString();
+    }
+
+    public static String getFormattedDate(LocalDateTime localDateTime) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(
+                (String) ApplicationConstants.DATE_TIME_FORMAT.getApplicationConstant(), TR);
+        return localDateTime.format(formatter);
+    }
+
+    public static String getCSVFromList(List<String> list) {
+        return list == null ? "" : String.join(", ", list);
+    }
+
+    public static String line(char c) {
+        return StringUtils.repeat(c, WIDTH);
+    }
+
+    public static String center(String text) {
+        return StringUtils.center(text, WIDTH);
+    }
+
+    public static String truncate(String text, int max) {
+        return StringUtils.abbreviate(text, max);
+    }
+
+    /** Ürün tablosunun satırları (başlık dahil). Sepet görünümü ve fatura aynı düzeni kullanır. */
+    public static String renderProducts(Collection<Product> products) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format(ROW, "Ürün", "Tür", "Adet", "Birim fiyat", "Tutar")).append('\n');
+        sb.append(line('-')).append('\n');
+        for (Product p : products) {
+            sb.append(String.format(ROW, truncate(p.getName(), 24), p.getType(), p.getQuantity(),
+                    money(p.getUnitPrice()), money(p.getLineTotal()))).append('\n');
         }
+        return sb.toString();
+    }
 
-        public static String getFormattedDate(LocalDateTime localDateTime) {
-                DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(
-                                (String) ApplicationConstants.DATE_TIME_FORMAT.getApplicationConstant());
-                return localDateTime.format(dateTimeFormatter);
+    public static String renderInvoice(Shopper shopper) {
+        Invoice invoice = shopper.getInvoice();
+        UserDetails user = shopper.getUserDetails();
+        StringBuilder sb = new StringBuilder();
+
+        sb.append(line('=')).append('\n');
+        sb.append(center((String) ApplicationConstants.BILL_HEADER.getApplicationConstant())).append('\n');
+        sb.append(line('=')).append('\n');
+        meta(sb, "Fatura no", invoice.getUid().toString());
+        meta(sb, "Tarih", getFormattedDate(invoice.getDate()));
+        meta(sb, "Müşteri", (user.getName() == null ? user.getUid() : user.getName()) + " (" + user.getUserType() + ")");
+        if (user.getUserSince() != null) {
+            meta(sb, "Üyelik", getFormattedDate(user.getUserSince()));
         }
-
-        public static String getCSVFromList(List<String> list) {
-                String csv = "";
-                if (list != null && !list.isEmpty()) {
-                        for (String object : list) {
-                                csv += object.toString() + ", ";
-                        }
-                        csv = csv.substring(0, csv.lastIndexOf(", "));
-                }
-                return csv;
+        if (user.getContacts() != null && !user.getContacts().isEmpty()) {
+            meta(sb, "İletişim", getCSVFromList(user.getContacts()));
         }
+        sb.append(line('-')).append('\n');
+        sb.append(renderProducts(shopper.getShoppingCart().getProductsInCart().getProducts().values()));
+        sb.append(line('-')).append('\n');
 
-        public static void printBillMeta(Shopper shopper) {
-                printColumn("Date", Utility.getFormattedDate(shopper.getInvoice().getDate()),
-                                ApplicationConstants.BILL_SPACE.getApplicationConstant().toString());
-                printColumn("Bill ID", shopper.getInvoice().getUid().toString(),
-                                ApplicationConstants.BILL_SPACE.getApplicationConstant().toString());
-                printColumn("Customer Name", shopper.getUserDetails().getName(),
-                                ApplicationConstants.BILL_SPACE.getApplicationConstant().toString());
-                printColumn("Customer ID", shopper.getUserDetails().getUid(),
-                                ApplicationConstants.BILL_SPACE.getApplicationConstant().toString());
-                printColumn("Customer Contacts", Utility.getCSVFromList(shopper.getUserDetails().getContacts()),
-                                ApplicationConstants.BILL_SPACE.getApplicationConstant().toString());
-                printColumn("Customer Since", Utility.getFormattedDate(shopper.getUserDetails().getUserSince()),
-                                ApplicationConstants.BILL_SPACE.getApplicationConstant().toString());
-                printColumn("Customer Type", shopper.getUserDetails().getUserType().toString(),
-                                ApplicationConstants.BILL_SPACE.getApplicationConstant().toString());
+        total(sb, "Ara toplam", money(invoice.getSubtotal()));
+        if (invoice.getUserDiscount().signum() > 0) {
+            total(sb, "Üye indirimi (" + percent(invoice.getUserDiscountRate()) + ", telefon hariç)",
+                    "-" + money(invoice.getUserDiscount()));
         }
-
-        public static void printBuffer() {
-                Utility.println(StringUtils.repeat(
-                                ApplicationConstants.BILL_PADDING.getApplicationConstant().toString(),
-                                (int) ApplicationConstants.BILL_LENGTH.getApplicationConstant()));
+        if (invoice.getBillDiscount().signum() > 0) {
+            total(sb, "Her $200 için $5 indirim", "-" + money(invoice.getBillDiscount()));
         }
+        sb.append(line('=')).append('\n');
+        total(sb, "ÖDENECEK TUTAR", money(invoice.getAmount()));
+        sb.append(line('=')).append('\n');
+        return sb.toString();
+    }
 
-        public static void printCenter(String s, String padding) {
-                Utility.println(StringUtils.rightPad(StringUtils.leftPad(s,
-                                ((int) ApplicationConstants.BILL_LENGTH.getApplicationConstant() + s.length()) / 2,
-                                padding), (int) ApplicationConstants.BILL_LENGTH.getApplicationConstant(), padding));
-        }
+    private static void meta(StringBuilder sb, String label, String value) {
+        sb.append(String.format("%-12s: %s%n", label, value));
+    }
 
-        public static void printColumn(String s, String t, String padding) {
-                Utility.println(
-                                StringUtils.repeat(ApplicationConstants.BILL_SPACE.getApplicationConstant().toString(),
-                                                (int) ApplicationConstants.BILL_LENGTH.getApplicationConstant() / 4) +
-                                                StringUtils.rightPad(s,
-                                                                (int) ApplicationConstants.BILL_LENGTH
-                                                                                .getApplicationConstant() / 4,
-                                                                padding)
-                                                + t);
-        }
-
-        public static void printProducts(Collection<Product> products) {
-                String productHeader = StringUtils.rightPad(" PRODUCT NAME ", 30, " ") +
-                                StringUtils.rightPad("PRODUCT ID", 40, " ") +
-                                StringUtils.rightPad("PRODUCT TYPE", 18, " ") +
-                                StringUtils.rightPad("UNIT PRICE", 12, " ") +
-                                StringUtils.rightPad("QUANTITY", 10, " ") +
-                                StringUtils.rightPad("TOTAL PRICE", 12, " ");
-                printBuffer();
-                Utility.println(productHeader);
-                printBuffer();
-                products.stream().forEach(p -> {
-                        BigDecimal quantity = new BigDecimal(p.getQuantity());
-                        BigDecimal itemTotal = p.getUnitPrice().multiply(quantity);
-                        String product = StringUtils.rightPad("* " + p.getName(), 30, " ") +
-                                        StringUtils.rightPad(p.getId().toString(), 40, " ") +
-                                        StringUtils.rightPad(p.getType().toString(), 18, " ") +
-                                        StringUtils.rightPad("$" + p.getUnitPrice(), 12, " ") +
-                                        StringUtils.rightPad(String.valueOf(p.getQuantity()), 10, " ") +
-                                        StringUtils.rightPad("$" + itemTotal, 12, " ");
-                        Utility.println(product);
-                });
-
-                BigDecimal total = products.stream()
-                                .map(p -> p.getUnitPrice().multiply(new BigDecimal(p.getQuantity())))
-                                .reduce(BigDecimal.ZERO, BigDecimal::add);
-                printBuffer();
-                printCenter("Undiscounted Bill = $" + ApplicationConstants.df.format(total),
-                                ApplicationConstants.BILL_SPACE.getApplicationConstant().toString());
-                printBuffer();
-        }
+    private static void total(StringBuilder sb, String label, String value) {
+        sb.append(String.format("%" + (WIDTH - 15) + "s %14s%n", label, value));
+    }
 }

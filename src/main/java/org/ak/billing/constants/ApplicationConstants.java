@@ -1,23 +1,20 @@
 package org.ak.billing.constants;
 
-import java.text.DecimalFormat;
+import java.math.BigDecimal;
 
 public enum ApplicationConstants {
     CART_QUANTITY(2),
     SHOW_LOGS(true),
-    INVENTORY_SHORTAGE_EX_MSG("**Cannot add from inventory, product is in shortage! **Please restock inventory**"),
-    DATE_TIME_FORMAT("cccc dd-MMMM-uuuu hh:mm a"),
-    BILL_HEADER(" MY RETAIL STORE BILL "),
-    BILL_PRODUCT_HEADER(" PRODUCTS PURCHASED "),
-    BILL_LENGTH(122),
-    BILL_PADDING("*"),
-    BILL_SPACE(" "),
-    EXTRA_DISCOUNT_THRESHOLD(new java.math.BigDecimal("200.00")),
-    EXTRA_DISCOUNT_AMOUNT(new java.math.BigDecimal("5.00"));
+    INVENTORY_SHORTAGE_EX_MSG("Stok yetersiz, ürün sepete eklenemiyor."),
+    DATE_TIME_FORMAT("dd MMMM yyyy, HH:mm"),
+    BILL_HEADER(" FATURA "),
+    BILL_LENGTH(72),
+    LOYALTY_YEARS(2),
+    LOW_STOCK_THRESHOLD(5),
+    EXTRA_DISCOUNT_THRESHOLD(new BigDecimal("200.00")),
+    EXTRA_DISCOUNT_AMOUNT(new BigDecimal("5.00"));
 
     private final Object appCons;
-
-    public static final DecimalFormat df = new DecimalFormat("#.##");
 
     ApplicationConstants(Object appCons) {
         this.appCons = appCons;
@@ -25,5 +22,13 @@ public enum ApplicationConstants {
 
     public final Object getApplicationConstant() {
         return appCons;
+    }
+
+    public final int asInt() {
+        return (int) appCons;
+    }
+
+    public final BigDecimal asDecimal() {
+        return (BigDecimal) appCons;
     }
 }

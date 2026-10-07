@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 public class SilverCartDiscountStrategy implements UserDiscountStrategy {
     @Override
-    public BigDecimal calculateDiscount(LocalDateTime userSince) {
+    public BigDecimal calculateDiscount(LocalDateTime userSince, LocalDateTime now) {
         return InvoiceDiscounts.SILVER_CART.getDiscount();
     }
 }

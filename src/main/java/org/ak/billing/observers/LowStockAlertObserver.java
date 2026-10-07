@@ -3,17 +3,24 @@ package org.ak.billing.observers;
 import org.ak.billing.beans.Product;
 import org.ak.billing.constants.ApplicationConstants;
 
+import java.io.PrintStream;
+
 public class LowStockAlertObserver implements InventoryObserver {
-    private static final int THRESHOLD = 5;
+    private final PrintStream out;
+
+    public LowStockAlertObserver() {
+        this(System.out);
+    }
+
+    public LowStockAlertObserver(PrintStream out) {
+        this.out = out;
+    }
 
     @Override
     public void onProductStockChanged(Product product) {
-        if (product.getQuantity() < THRESHOLD) {
-            if ((Boolean) ApplicationConstants.SHOW_LOGS.getApplicationConstant()) {
-                System.out.println("\n[SISTEM UYARISI - OBSERVER]: '" + product.getName()
-                        + "' isimli urunun stogu kritik seviyeye (" +
-                        product.getQuantity() + ") dustu! Acil tedarikciyi arayin.");
-            }
+        if (product.getQuantity() < ApplicationConstants.LOW_STOCK_THRESHOLD.asInt()) {
+            out.printf("[STOK UYARISI] '%s' kritik seviyede: %d adet kaldı.%n",
+                    product.getName(), product.getQuantity());
         }
     }
 }

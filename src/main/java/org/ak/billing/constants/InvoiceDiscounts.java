@@ -2,12 +2,12 @@ package org.ak.billing.constants;
 
 import java.math.BigDecimal;
 
+/** Kullanıcı tipine göre yüzde indirim oranları. Faturada bunlardan yalnızca biri uygulanır (kural 7). */
 public enum InvoiceDiscounts {
-    NOT_PHONE(new BigDecimal("0.025")),
     CUSTOMER(new BigDecimal("0.05")),
     AFFILIATE(new BigDecimal("0.10")),
-    GOLD_CART(new BigDecimal("0.30")),
-    SILVER_CART(new BigDecimal("0.20"));
+    SILVER_CART(new BigDecimal("0.20")),
+    GOLD_CART(new BigDecimal("0.30"));
 
     private final BigDecimal discount;
 

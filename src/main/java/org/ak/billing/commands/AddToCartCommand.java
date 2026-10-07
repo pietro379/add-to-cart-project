@@ -9,6 +9,7 @@ public class AddToCartCommand implements Command {
     private final MyCartService cartService;
     private final Product product;
     private final ShoppingCart cart;
+    private Product previous;
 
     public AddToCartCommand(MyCartService cartService, Product product, ShoppingCart cart) {
         this.cartService = cartService;
@@ -17,21 +18,23 @@ public class AddToCartCommand implements Command {
     }
 
     @Override
-    public void execute() {
-        boolean added = cartService.addProduct(product, cart);
-        if (added) {
-            System.out
-                    .println("==> [" + product.getName() + "] sepetinize " + product.getQuantity() + " adet eklendi!");
-        } else {
-            System.out.println("==> Urun zaten sepette olabilir veya eklenemedi.");
-        }
+    public boolean execute() {
+        // Ürün zaten sepetteyse eski adedi sakla; geri almada ürünü silmek yerine o adede dönülür.
+        previous = cartService.getProduct(product.getId(), cart);
+        return cartService.addProduct(product, cart);
     }
 
     @Override
     public void undo() {
-        // Sepetten bu ürünü bulup tamamen silmek (veya miktarını düşürmek)
-        // Basitlik için ürün tamamen sepetten çıkarılır
-        cartService.getAllProducts(cart).remove(product);
-        System.out.println("GERI AL (UNDO) ==> [" + product.getName() + "] sepetten cikarildi!");
+        if (previous == null) {
+            cartService.removeProduct(product.getId(), cart);
+        } else {
+            cartService.updateProduct(previous, cart);
+        }
+    }
+
+    @Override
+    public String describe() {
+        return product.getQuantity() + " x " + product.getName() + " ekleme";
     }
 }

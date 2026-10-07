@@ -19,8 +19,8 @@ public class MyStoreDao implements StoreDao {
     @Override
     public boolean updateInventory(Product product) {
         boolean response = false;
-        if (myStore.getProductInventory().get().getProducts().containsKey(product.getId())) {
-            myStore.getProductInventory().get().getProducts().put(product.getId(), product);
+        if (myStore.getProductInventory().getProducts().containsKey(product.getId())) {
+            myStore.getProductInventory().getProducts().put(product.getId(), product);
             response = true;
         }
         return response;
@@ -28,24 +28,24 @@ public class MyStoreDao implements StoreDao {
 
     @Override
     public boolean updateInventoryBatch(Set<Product> products) {
-        boolean response = false;
+        boolean allUpdated = true;
         for (Product p : products) {
-            updateInventory(p);
+            allUpdated &= updateInventory(p);
         }
-        return response;
+        return allUpdated;
     }
 
     @Override
     public Product getProduct(UUID pid) {
         Product product = null;
-        if (myStore.getProductInventory().get().getProducts().containsKey(pid)) {
-            product = myStore.getProductInventory().get().getProducts().get(pid);
+        if (myStore.getProductInventory().getProducts().containsKey(pid)) {
+            product = myStore.getProductInventory().getProducts().get(pid);
         }
         return product;
     }
 
     @Override
     public Set<Product> getAllProducts() {
-        return new LinkedHashSet<>(myStore.getProductInventory().get().getProducts().values());
+        return new LinkedHashSet<>(myStore.getProductInventory().getProducts().values());
     }
 }

@@ -8,13 +8,15 @@ import org.ak.billing.strategies.StoreDBStrategy;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-//Singleton & Immutable
+// Singleton, bellek içi örnek envanter (testler ve dosyasız çalıştırma için).
 public final class Store implements StoreDBStrategy {
 
-    private final ThreadLocal<Products> productInventory = new ThreadLocal<>();
+    // Önceden ThreadLocal idi: envanter yalnızca singleton'ı ilk oluşturan thread'de görünüyor,
+    // diğer thread'lerde null dönüyordu. Tek bir paylaşılan envanter tutulur.
+    private final Products productInventory;
 
     private Store() {
-        productInventory.set(initialize());
+        productInventory = initialize();
     }
 
     private static final class StoreLoader {
@@ -26,7 +28,7 @@ public final class Store implements StoreDBStrategy {
     }
 
     @Override
-    public final ThreadLocal<Products> getProductInventory() {
+    public final Products getProductInventory() {
         return productInventory;
     }
 

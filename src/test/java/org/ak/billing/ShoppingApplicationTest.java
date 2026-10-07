@@ -1,102 +1,94 @@
 package org.ak.billing;
 
 import org.ak.billing.beans.Product;
-import org.ak.billing.beans.ShoppingCart;
 import org.ak.billing.beans.UserDetails;
-import org.ak.billing.constants.ProductTypes;
 import org.ak.billing.constants.UserTypes;
+import org.ak.billing.daos.impls.FileStoreDao;
 import org.ak.billing.exceptions.InventoryShortageException;
-import org.ak.billing.services.InvoiceService;
 import org.ak.billing.services.StoreDBService;
 import org.ak.billing.services.impls.MyCartService;
+import org.ak.billing.services.impls.MyInvoiceService;
+import org.ak.billing.services.impls.MyStoreDBService;
+import org.ak.billing.strategies.impls.MyCartLoadingStrategy;
 import org.ak.billing.strategies.impls.MyInvoiceGenerator;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.util.Set;
-import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class ShoppingApplicationTest {
+/**
+ * Uçtan uca senaryo: varsayılan envanterdeki 5 üründen 2'şer adet alınır.
+ * Ara toplam $85.90; bunun $1.98'i telefon (yüzde indirim dışı), $83.92'si indirime tabi.
+ */
+class ShoppingApplicationTest {
 
-        @Mock
-        private StoreDBService myStoreDBService;
+    @TempDir
+    Path tempDir;
 
-        @Mock
-        private MyCartService myCartService;
+    private StoreDBService store;
+    private ShoppingApplication app;
 
-        @Mock
-        private InvoiceService myInvoiceService;
+    @BeforeEach
+    void setUp() {
+        store = new MyStoreDBService(new FileStoreDao(tempDir.resolve("inventory.csv")));
+        app = new ShoppingApplication(store,
+                new MyCartService(store, new MyCartLoadingStrategy()),
+                new MyInvoiceService(new MyInvoiceGenerator()) {
+                    @Override
+                    public void print(org.ak.billing.beans.Shopper shopper) {
+                        // testte konsola fatura basma
+                    }
+                });
+    }
 
-        @InjectMocks
-        private ShoppingApplication shoppingApplication;
+    @ParameterizedTest(name = "{0} -> ${2}")
+    @CsvSource({
+            "GOLD_CART,   0, 60.72",  // 83.92 x %30 = 25.18 indirim
+            "SILVER_CART, 0, 69.12",  // 83.92 x %20 = 16.78
+            "AFFILIATE,   0, 77.51",  // 83.92 x %10 = 8.39
+            "CUSTOMER,    3, 81.70",  // 3 yıllık müşteri, 83.92 x %5 = 4.20
+            "CUSTOMER,    0, 85.90",  // yeni müşteri, indirim yok
+    })
+    @DisplayName("Kullanıcı tipine göre net tutar")
+    void netAmountByUserType(UserTypes type, int yearsAsCustomer, String expected) throws Exception {
+        UserDetails user = new UserDetails.Builder()
+                .name("Test")
+                .userType(type)
+                .userSince(LocalDateTime.now().minusYears(yearsAsCustomer))
+                .build();
 
-        private MyInvoiceGenerator invoiceGenerator;
+        assertEquals(new BigDecimal(expected), app.shop(user));
+    }
 
-        @Before
-        public void setUp() throws Exception {
-                MockitoAnnotations.openMocks(this);
-                invoiceGenerator = new MyInvoiceGenerator();
-        }
+    @Test
+    @DisplayName("Alışveriş sonrası stoklar düşer")
+    void shoppingDecreasesInventory() throws Exception {
+        int before = store.getInventory().stream().mapToInt(Product::getQuantity).sum();
 
-        private void setupMockCartForUserType() throws InventoryShortageException {
-                ShoppingCart mockCart = new ShoppingCart();
-                when(myCartService.getNewShoppingCart()).thenReturn(mockCart);
-                when(myCartService.loadNEachFromInventory(anyInt(), any(ShoppingCart.class))).thenReturn(true);
-                doNothing().when(myStoreDBService).updateInventory(any(Set.class));
+        app.shop(new UserDetails.Builder().userType(UserTypes.CUSTOMER).userSince(LocalDateTime.now()).build());
 
-                // Fatura generatörünü gerçek sınıfınki gibi çalıştıracak şekilde mock'u
-                // ayarlayalım
-                // Veya daha iyisi: myInvoiceService'e generate dendiğinde, içini kendi
-                // invoiceGenerator'ımızla doldurtalım
-                org.mockito.Mockito.doAnswer(invocation -> {
-                        org.ak.billing.beans.Shopper shopper = invocation.getArgument(0);
+        int after = store.getInventory().stream().mapToInt(Product::getQuantity).sum();
+        assertEquals(before - 5 * 2, after);
+    }
 
-                        // Dummy ürünler ekleyelim (Bu testler fatura hesabını ölçüyor)
-                        Product p1 = new Product(UUID.randomUUID(), "DUMMY", 2, ProductTypes.PHONE,
-                                        new BigDecimal("100.00"));
-                        Product p2 = new Product(UUID.randomUUID(), "DUMMY2", 1, ProductTypes.CLOTHING,
-                                        new BigDecimal("50.00"));
-                        shopper.getShoppingCart().getProductsInCart().getProducts().put(p1.getId(), p1);
-                        shopper.getShoppingCart().getProductsInCart().getProducts().put(p2.getId(), p2);
-
-                        invoiceGenerator.generate(shopper);
-                        return null;
-                }).when(myInvoiceService).generate(any());
-
-                doNothing().when(myInvoiceService).print(any());
-        }
-
-        @Test
-        public void UserIsAffiliate() throws InventoryShortageException {
-                setupMockCartForUserType();
-                LocalDateTime localDateTime = LocalDateTime.of(2018, 11, 22, 3, 15);
-                UserDetails userDetails = new UserDetails.Builder()
-                                .name("Ali Cimen")
-                                .userType(UserTypes.AFFILIATE)
-                                .userSince(localDateTime)
-                                .contacts("+90-535-000-43", "ali@gmail.com")
-                                .build();
-
-                // 2 phones (200), 1 cloth (50) -> total 250
-                // Affiliate: %10 off non-phone => 50 * 0.10 = 5. So cloth is 45.
-                // Also 50 has NO NOT_PHONE discount inherently?
-                // Wait, the logic recalculates:
-                // Let's just trust the expected value to match exact logic output
-                BigDecimal result = shoppingApplication.shop(userDetails);
-                // Ensure result isn't null, but actual expected logic needs to align with mock
-                // items
-                // Since we are decoupling, we just ensure it executes successfully for this
-                // example
-                org.junit.Assert.assertNotNull(result);
-        }
+    @Test
+    @DisplayName("Stok yetersizse alışveriş başlamaz")
+    void shortageIsReported() {
+        UserDetails user = new UserDetails.Builder().userType(UserTypes.CUSTOMER).userSince(LocalDateTime.now()).build();
+        // En az stoklu ürün 20 adet: 10 tur x 2 adet stoku bitirir, 11. tur yetmez.
+        assertThrows(InventoryShortageException.class, () -> {
+            for (int i = 0; i < 11; i++) {
+                app.shop(user);
+            }
+        });
+    }
 }

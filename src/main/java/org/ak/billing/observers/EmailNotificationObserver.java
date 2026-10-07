@@ -1,17 +1,30 @@
 package org.ak.billing.observers;
 
 import org.ak.billing.beans.Shopper;
-import java.math.BigDecimal;
+import org.ak.billing.helpers.Utility;
 
+import java.io.PrintStream;
+import java.util.List;
+
+/** Fatura e-postası gönderimini simüle eder (iletişim listesinin 2. elemanı e-posta kabul edilir). */
 public class EmailNotificationObserver implements InvoiceObserver {
+    private final PrintStream out;
+
+    public EmailNotificationObserver() {
+        this(System.out);
+    }
+
+    public EmailNotificationObserver(PrintStream out) {
+        this.out = out;
+    }
+
     @Override
     public void onInvoiceGenerated(Shopper shopper) {
-        BigDecimal total = shopper.getInvoice().getAmount();
-        String email = shopper.getUserDetails().getContacts() != null
-                && shopper.getUserDetails().getContacts().size() > 1
-                        ? shopper.getUserDetails().getContacts().get(1)
-                        : "Bilinmiyor";
-        System.out.println("[EMAIL NOTIFICATION] => Faturaniz olusturuldu. Toplam tutar: $" + total
-                + " Mail adresinize iletildi: " + email);
+        List<String> contacts = shopper.getUserDetails().getContacts();
+        if (contacts == null || contacts.size() < 2) {
+            return;
+        }
+        out.printf("[E-POSTA] %s tutarındaki fatura %s adresine gönderildi.%n",
+                Utility.money(shopper.getInvoice().getAmount()), contacts.get(1));
     }
 }

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Add To Cart</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="/">
+        <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M3 4h2l2.4 10.2a1.5 1.5 0 0 0 1.5 1.1h8.6a1.5 1.5 0 0 0 1.4-1l2.1-6.3H6.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="19.5" r="1.5" fill="currentColor"/><circle cx="17" cy="19.5" r="1.5" fill="currentColor"/></svg>
+        add<span>to</span>cart
+      </a>
+
+      <label class="customer">
+        <span class="customer-label">Müşteri tipi</span>
+        <select id="customer">
+          <option value="GOLD">Gold kart · %30</option>
+          <option value="SILVER">Silver kart · %20</option>
+          <option value="AFFILIATE">Mağaza çalışanı · %10</option>
+          <option value="LOYAL">2 yıldan eski müşteri · %5</option>
+          <option value="NEW">Yeni müşteri</option>
+        </select>
+      </label>
+
+      <div class="history" role="group" aria-label="Geçmiş">
+        <button class="icon-btn" id="undo" type="button" title="Geri al (Ctrl+Z)" aria-label="Geri al">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="icon-btn" id="redo" type="button" title="Yinele (Ctrl+Y)" aria-label="Yinele">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap layout">
+    <section aria-labelledby="products-title">
+      <div class="section-head">
+        <h1 id="products-title">Ürünler</h1>
+        <ul class="rules">
+          <li>Yüzde indirimler telefonlara uygulanmaz</li>
+          <li>Her <strong>$200</strong> için <strong>$5</strong> indirim</li>
+        </ul>
+      </div>
+      <ul class="products" id="products" aria-live="polite"></ul>
+    </section>
+
+    <aside class="cart" id="cart" aria-labelledby="cart-title">
+      <div class="cart-head">
+        <h2 id="cart-title">Sepet</h2>
+        <span class="pill" id="cart-count">0 ürün</span>
+      </div>
+      <ul class="cart-items" id="cart-items"></ul>
+      <div class="cart-empty" id="cart-empty">
+        <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><path d="M3 4h2l2.4 10.2a1.5 1.5 0 0 0 1.5 1.1h8.6a1.5 1.5 0 0 0 1.4-1l2.1-6.3H6.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <p>Sepetiniz boş.<br>Ürün kartlarından ekleyebilirsiniz.</p>
+      </div>
+
+      <dl class="totals" id="totals" hidden>
+        <div><dt>Ara toplam</dt><dd id="t-subtotal"></dd></div>
+        <div class="discount" id="row-user"><dt id="t-user-label">Üye indirimi</dt><dd id="t-user"></dd></div>
+        <div class="discount" id="row-bill"><dt>$200 indirimi</dt><dd id="t-bill"></dd></div>
+        <div class="grand"><dt>Ödenecek tutar</dt><dd id="t-total"></dd></div>
+      </dl>
+      <p class="hint" id="hint" hidden></p>
+
+      <button class="btn btn-primary btn-block" id="checkout" type="button" disabled>Ödemeye geç</button>
+    </aside>
+  </main>
+
+  <dialog class="modal" id="checkout-modal" aria-labelledby="checkout-title">
+    <form id="checkout-form" class="modal-body" novalidate>
+      <div class="modal-head">
+        <h2 id="checkout-title">Ödeme</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Kapat">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <label class="field">
+        <span>Adınız</span>
+        <input id="name" type="text" autocomplete="name" placeholder="Misafir">
+      </label>
+
+      <fieldset class="field">
+        <legend>Ödeme yöntemi</legend>
+        <div class="choice">
+          <label><input type="radio" name="payment" value="card" checked><span>Kredi kartı</span></label>
+          <label><input type="radio" name="payment" value="cod"><span>Kapıda ödeme</span></label>
+        </div>
+      </fieldset>
+
+      <label class="field" id="card-field">
+        <span>Kart numarası</span>
+        <input id="card" type="text" inputmode="numeric" autocomplete="cc-number" placeholder="4111 1111 1111 1111" maxlength="23">
+        <small>Test için 4111 1111 1111 1111 kullanabilirsiniz.</small>
+      </label>
+
+      <p class="form-error" id="checkout-error" role="alert" hidden></p>
+
+      <div class="modal-total">
+        <span>Ödenecek tutar</span>
+        <strong id="modal-total"></strong>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" id="pay">Ödemeyi tamamla</button>
+    </form>
+
+    <div class="modal-body receipt" id="receipt" hidden>
+      <div class="receipt-check" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="30" height="30"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h2>Siparişiniz alındı</h2>
+      <p class="muted" id="receipt-payment"></p>
+      <div class="invoice">
+        <div class="invoice-meta">
+          <span>Fatura</span><code id="receipt-id"></code>
+          <span>Müşteri</span><strong id="receipt-customer"></strong>
+        </div>
+        <table>
+          <thead><tr><th>Ürün</th><th class="num">Adet</th><th class="num">Tutar</th></tr></thead>
+          <tbody id="receipt-items"></tbody>
+        </table>
+        <dl class="totals" id="receipt-totals"></dl>
+      </div>
+      <button class="btn btn-primary btn-block" type="button" data-close>Yeni alışveriş</button>
+    </div>
+  </dialog>
+
+  <div class="mobile-bar" id="mobile-bar" hidden>
+    <div><small id="mobile-count"></small><strong id="mobile-total"></strong></div>
+    <a class="btn btn-primary" href="#cart">Sepete git</a>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
