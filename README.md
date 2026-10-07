@@ -4,6 +4,10 @@
 
 Bir perakende mağazasının indirim kurallarını uygulayan alışveriş sepeti ve fatura uygulaması. Hem **web arayüzü** hem **komut satırı** ile kullanılabilir; ikisi de aynı Java servislerini kullanır, kurallar tek bir yerde yazılıdır. Java 17 ile yazıldı; tasarım desenleri (Strategy, Factory, Observer, Command, Builder) ve para hesabında `BigDecimal` kullanımı üzerine kurulu.
 
+### 👉 [Canlı Demo](https://pietro379.github.io/add-to-cart-project/)
+
+> GitHub Pages yalnızca statik dosya sunduğu için demoda Java sunucusu çalışmaz. API istekleri, aynı indirim kurallarını uygulayan tarayıcı içi bir taklitle (`docs/demo-api.js`) yanıtlanır. Kuralların asıl kaynağı Java kodudur.
+
 ![Web arayüzü](docs/web.png)
 
 ```text
